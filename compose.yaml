@@ -1,0 +1,44 @@
+# Routemon Community 標準構成(#12)
+# 初回は http://<server-ip>:8080/ へBrowserでアクセスし、Setup Wizardを実行する。
+# Setup完了後はCaddyがTLSを終端する(Public URLを設定するとCaddyへ反映される)。
+services:
+  routemon:
+    build: .
+    image: routemon/community:dev
+    restart: unless-stopped
+    # 停止シグナルを確実に届け、正常終了(最大SHUTDOWN_GRACE_MS=5秒)を待ってから強制終了する(#151)
+    init: true
+    stop_grace_period: 10s
+    environment:
+      # Caddyの管理APIへ設定を反映する(Docker socketはmountしない)
+      CADDY_ADMIN_URL: http://caddy:2019
+      CADDY_CONFIG_PATH: /data/caddy/routemon.caddyfile
+    volumes:
+      - routemon-data:/data
+    ports:
+      # Bootstrap用。Setup完了後は閉じてもよい(Caddy経由で使う)
+      - "8080:8080"
+    expose:
+      - "8081"
+      - "8082"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - routemon
+    volumes:
+      - routemon-data:/data:ro
+      - caddy-data:/data/caddy-internal
+      - caddy-config:/config
+    ports:
+      - "443:443"
+      - "443:443/udp"
+      # Native WebGUIは専用origin(docs/core/webgui-relay-design.md §8)
+      - "8443:8443"
+    command: ["caddy", "run", "--config", "/data/caddy/routemon.caddyfile", "--adapter", "caddyfile", "--watch"]
+
+volumes:
+  routemon-data:
+  caddy-data:
+  caddy-config:

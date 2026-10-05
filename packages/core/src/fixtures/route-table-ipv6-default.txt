@@ -1,0 +1,3 @@
+Destination         Gateway          Interface       Type      Details
+::/0                -                TUNNEL[1]       static
+2001:db8:1::/64      fe80::1          TUNNEL[1]       OSPF      cost=10

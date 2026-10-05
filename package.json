@@ -1,0 +1,28 @@
+{
+	"name": "routemon",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=24"
+	},
+	"workspaces": [
+		"apps/*",
+		"packages/*"
+	],
+	"scripts": {
+		"start": "npm start -w apps/community",
+		"build": "npm run build -w @routemon/web",
+		"test": "vitest run",
+		"lint": "biome check",
+		"typecheck": "tsc && tsc -p packages/web",
+		"audit:licenses": "node scripts/licenses.mjs"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.15",
+		"@types/better-sqlite3": "^9.6.0",
+		"@types/node": "^24.19.0",
+		"typescript": "^7.0.2",
+		"vitest": "^5.0.3"
+	},
+	"license": "MIT"
+}

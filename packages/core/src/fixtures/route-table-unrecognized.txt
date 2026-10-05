@@ -1,0 +1,3 @@
+show ip route
+Protocol state
+No route table header is present

@@ -1,0 +1,6 @@
+Destination         Gateway          Interface       Type      Details
+0.0.0.0/0           -                PP[01]          static    filter:500000
+203.0.113.0/24      203.0.113.1      TUNNEL[1]       RIP       metric=1
+198.51.100.0/24     198.51.100.1    TUNNEL[2]       OSPF      cost=20
+192.0.2.0/24        192.0.2.1       TUNNEL[3]       BGP       local-pref=100
+192.0.2.128/25      -                LAN1            vendor-route note=kept
