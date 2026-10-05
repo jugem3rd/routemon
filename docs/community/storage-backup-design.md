@@ -364,7 +364,7 @@ Restoreは停止状態または専用one-shot containerで実行する。
 
 ```text
 docker compose down
-docker compose run --rm routemon restore /backup/routemon-backup.tar.gz
+docker compose run --rm -v "$PWD:/backup:ro" routemon routemon restore /backup/routemon-backup.tar.gz
 docker compose up -d
 ```
 

@@ -32,6 +32,10 @@ COPY --from=build /app/agent/https_tunnel_agent.lua agent/
 # release artifactにもlicense noticeを含める(#10)
 COPY LICENSE THIRD_PARTY_NOTICES.md ./
 
+# `docker compose exec routemon routemon backup`のように使うCLI
+RUN printf '#!/bin/sh\nexec node /app/apps/community/src/cli.ts "$@"\n' > /usr/local/bin/routemon \
+	&& chmod +x /usr/local/bin/routemon
+
 ENV ROUTEMON_DATA_DIR=/data
 VOLUME ["/data"]
 # 8080: GUI / API、8081: Agent Gateway、8082: Native WebGUI relay
