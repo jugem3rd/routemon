@@ -294,35 +294,34 @@ setInterval(() => {
 		console.warn(`scheduled job failed: ${(error as Error).message}`);
 	});
 }, scheduleTickMs).unref();
-// Routerから見たRoutemonのbase URLとAgent Gateway endpoint(#12のSetupで設定する)
-const publicBaseUrl =
+// Routerから見たRoutemonのbase URLとAgent Gateway endpoint(#12のSetupで設定する)。
+// Public URLはSetup Wizardで起動後に決まるため、起動時の値を固定せず、使うたびに読む。
+const setup = new Setup(storage.db, auth);
+const agentBaseUrl = (): string =>
+	process.env.AGENT_BASE_URL ??
 	process.env.PUBLIC_BASE_URL ??
-	new Setup(storage.db, auth).status().publicBaseUrl ??
+	setup.status().publicBaseUrl ??
 	`http://localhost:${port}`;
-const agentBaseUrl = process.env.AGENT_BASE_URL ?? publicBaseUrl;
 // Agentへ通知する接続先の一覧(カンマ区切り、先頭が優先)。既定はAGENT_BASE_URL(#147)。
 // 接続先を変更するときは、古い接続先がまだ使えるうちに、この値を新しい接続先へ変える。
-{
-	const endpoints = parseGatewayEndpoints(
-		process.env.AGENT_ENDPOINTS ?? agentBaseUrl,
+if (
+	process.env.AGENT_ENDPOINTS &&
+	!parseGatewayEndpoints(process.env.AGENT_ENDPOINTS)
+) {
+	console.warn(
+		"AGENT_ENDPOINTS is not a valid gateway endpoint list; endpoint updates are disabled",
 	);
-	if (endpoints) {
-		gatewayEndpoints = new GatewayEndpointsNotifier({
-			gateway,
-			endpoints,
-			log: (message) => console.log(message),
-		});
-	} else {
-		console.warn(
-			"AGENT_ENDPOINTS / AGENT_BASE_URL is not a valid gateway endpoint; endpoint updates are disabled",
-		);
-	}
 }
+gatewayEndpoints = new GatewayEndpointsNotifier({
+	gateway,
+	endpoints: () =>
+		parseGatewayEndpoints(process.env.AGENT_ENDPOINTS ?? agentBaseUrl()),
+	log: (message) => console.log(message),
+});
 const enrollment = new Enrollment(storage.db, tenantId, audit, {
 	gatewayUrl: agentBaseUrl,
 	agentVersion: process.env.AGENT_VERSION ?? "stable",
 });
-const setup = new Setup(storage.db, auth);
 if (!setup.status().initialized) {
 	console.log("setup is not completed: open the GUI and follow /setup");
 }

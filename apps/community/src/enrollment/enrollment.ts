@@ -14,6 +14,7 @@ import {
 } from "node:crypto";
 import { AuditEventType, type AuditLog } from "../auth/audit.ts";
 import { type Db, nowIso } from "../storage/db.ts";
+import { resolveUrl, type UrlSource } from "./urlSource.ts";
 
 export const CODE_TTL_MS = 15 * 60 * 1000;
 /** 表示形式: K7PF-3MTQ-X9RW(docs/core/device-enrollment-design.md §4) */
@@ -71,8 +72,8 @@ function hashToken(token: string): string {
 }
 
 export type EnrollmentOptions = {
-	/** Agentが接続するAgent Gateway endpoint(Setupで設定する、#12) */
-	gatewayUrl: string;
+	/** Agentが接続するAgent Gateway endpoint(Setupで設定する、#12)。Setup後の値を使うため、関数でもよい */
+	gatewayUrl: UrlSource;
 	/** 初回導入するAgent version */
 	agentVersion?: string;
 	now?: () => number;
@@ -240,7 +241,7 @@ export class Enrollment {
 		});
 		return {
 			...result,
-			gateway: this.options.gatewayUrl,
+			gateway: resolveUrl(this.options.gatewayUrl),
 			agentVersion: this.options.agentVersion ?? "stable",
 		};
 	}

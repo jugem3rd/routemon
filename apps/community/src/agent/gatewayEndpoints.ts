@@ -25,28 +25,32 @@ export function parseGatewayEndpoints(value: string): string[] | undefined {
 
 export class GatewayEndpointsNotifier {
 	private readonly gateway: AgentGateway;
-	private readonly payload: Uint8Array;
+	/** 関数のときは、送るたびに評価する(Setup後のPublic URLを使うため)。`undefined`なら送らない */
+	private readonly endpoints: string[] | (() => string[] | undefined);
 	private readonly log?: (message: string) => void;
 
 	constructor(options: {
 		gateway: AgentGateway;
-		endpoints: string[];
+		endpoints: string[] | (() => string[] | undefined);
 		log?: (message: string) => void;
 	}) {
 		this.gateway = options.gateway;
-		this.payload = encodeGatewayEndpoints(options.endpoints);
+		this.endpoints = options.endpoints;
 		this.log = options.log;
 	}
 
 	/** 送った場合はtrue。versionが不明、または未対応のAgentには送らない。 */
 	notify(deviceId: string, agentVersion: string | null | undefined): boolean {
 		if (!agentVersion || !supportsGatewayEndpoints(agentVersion)) return false;
+		const endpoints =
+			typeof this.endpoints === "function" ? this.endpoints() : this.endpoints;
+		if (!endpoints) return false;
 		try {
 			this.gateway.sendFrame(
 				deviceId,
 				FrameType.GATEWAY_ENDPOINTS,
 				0,
-				this.payload,
+				encodeGatewayEndpoints(endpoints),
 			);
 			this.log?.(
 				`gateway endpoints sent to ${deviceId} (agent ${agentVersion})`,
