@@ -359,6 +359,8 @@ docker compose up -d
 
 ただしRoutine operationはGUI中心とし、Upgrade時だけCLI利用を許容する。
 
+Agent本体はDocker imageに同梱され、Serverの起動時に`/data/agent/releases/`へ配置される。新規installでも、Upgradeでも、利用者がAgent artifactを手で置く必要はない。同梱のAgentが新しいときだけ`stable`が更新され、管理者が置いた他のversionのartifactはそのまま残る。詳細は`docs/core/agent-update-design.md`の「Community Serverが配置する同梱Agent」を参照する。
+
 将来GUIでUpdate availableを表示してもよいが、Community v0.1でServer自身による自動Container updateは必須としない。
 
 Docker imageは最低限以下を対象とする。

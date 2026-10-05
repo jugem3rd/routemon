@@ -139,6 +139,20 @@ Agentはsource内で`local VERSION = 'x.y.z'`を宣言し、stableのmanifestは
 Agentが起動時に報告する版とmanifestを一致させるため、`stable.lua`を差し替えるときはartifactの版宣言も更新する。
 個別versionのrelease fileは`<version>.lua`として置き、管理画面の更新対象にはstable aliasを含めない。
 
+### Community Serverが配置する同梱Agent
+
+Docker imageは、Agent本体(`agent/https_tunnel_agent.lua`)を`/app/agent/`へ同梱する。Community Serverは起動時、storageを開いた後に、同梱のAgentをrelease directory(`/data/agent/releases/`)へ配置する。空の`/data`から起動しても、追加の手作業なしでEnrollmentが通るための仕組みである。
+
+- 同梱のAgentのversionは、ファイル内の`local VERSION = '...'`から読む。読めない、またはファイルが無いときは、壊れたimageとして起動を失敗させる
+- `<version>.lua`: 無ければ置く。有れば上書きしない
+- `stable.lua`: 無い、置いてある版が読めない、または同梱の版が置いてある版より新しいときだけ置き換える。同じ版か古い版のときは変えない(管理者が置いたstableを、古いimageへ戻したときに巻き戻さない)
+- 管理者が置いた他のversionのartifact(`<version>.lua`、`supervisor-<version>.lua`)には触らない
+- fileは一時fileへ書いてからrenameし、配布中のartifactが書きかけにならないようにする
+- 配置した版と結果を、起動logへ出す(`bundled agent 0.3.0: stable updated (was none), release written`)
+- 同梱のAgentの場所は、環境変数`AGENT_BUNDLE_PATH`で変えられる(開発用)
+
+Serverのupgrade(`docker compose pull && docker compose up -d`)で、同梱のAgentが新しければstableが新しくなる。すでにEnrollment済みのRouterへの反映は、Deviceごとのdesired versionに従う(自動では更新しない)。
+
 ---
 
 ## 5. Release manifest
