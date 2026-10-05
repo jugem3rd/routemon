@@ -1,10 +1,13 @@
 # Routemon Community 標準構成(#12)
 # 初回は http://<server-ip>:8080/ へBrowserでアクセスし、Setup Wizardを実行する。
 # Setup完了後はCaddyがTLSを終端する(Public URLを設定するとCaddyへ反映される)。
+# source checkoutからbuildするときは、compose.dev.yamlを重ねる:
+#   docker compose -f compose.yaml -f compose.dev.yaml up -d --build
 services:
   routemon:
-    build: .
-    image: routemon/community:dev
+    # ROUTEMON_VERSIONで版を固定できる(例: ROUTEMON_VERSION=0.1.0 docker compose up -d)。
+    # 既定の0.1は、0.1.xの最新へ追従する。
+    image: ghcr.io/jugem3rd/routemon:${ROUTEMON_VERSION:-0.1}
     restart: unless-stopped
     # 停止シグナルを確実に届け、正常終了(最大SHUTDOWN_GRACE_MS=5秒)を待ってから強制終了する(#151)
     init: true
@@ -23,7 +26,7 @@ services:
       - "8082"
 
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2.11.6-alpine
     restart: unless-stopped
     depends_on:
       - routemon
