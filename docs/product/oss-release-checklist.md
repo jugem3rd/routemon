@@ -18,8 +18,9 @@ Routemon CommunityをMIT Licenseで一般公開する前に必要なRepository�
 - [x] 必要なcopyright / attribution noticeを確認する
 - [x] `THIRD_PARTY_NOTICES.md`を作成する
 - [x] ContributionもMITで受け入れる方針を明示する(`CONTRIBUTING.md`)
-- [ ] 必要に応じてDCOを採用する(初期は採用しない)
-- [ ] Project trademark / nameの利用方針を必要に応じて定義する(現時点では定義しない)
+- [x] `SECURITY.md`、Issue / PR template、`CONTRIBUTING.md`の開発手順を整える(#5)
+- [x] 必要に応じてDCOを採用する(決定: 初期は採用しない。外部のPRが増えたら再検討)
+- [x] Project trademark / nameの利用方針を必要に応じて定義する(決定: 現時点では定義しない)
 - [ ] npmの`@routemon`スコープ名の確保を検討する(パッケージは公開しない。名前を他者に取られないため)
 
 ## 公開対象(このrepository、MIT)
