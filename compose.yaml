@@ -11,6 +11,12 @@ services:
     restart: unless-stopped
     # 停止シグナルを確実に届け、正常終了(最大SHUTDOWN_GRACE_MS=5秒)を待ってから強制終了する(#151)
     init: true
+    # Agentの同時接続1本につきFDが1つ要る。環境のhard limitが低い(1,024など)と、約1,000台で詰まる
+    # (docs/community/loadtest.md §2.4)。Dockerの既定では問題にならないが、明示しておく
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     stop_grace_period: 10s
     environment:
       # Caddyの管理APIへ設定を反映する(Docker socketはmountしない)
