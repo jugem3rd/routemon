@@ -16,6 +16,17 @@ export type Tag = {
 	createdAt: string;
 };
 
+/** DeviceのStructured Event(PPP・Tunnelの状態変化、IP変更、再起動、Agentの接続など、#6) */
+export type DeviceEvent = {
+	id: string;
+	type: string;
+	severity: "info" | "warning" | string;
+	detail: Record<string, unknown> | null;
+	occurredAt: string;
+	/** 続きを取るときの`beforeSeq` */
+	seq: number;
+};
+
 export type Device = {
 	id: string;
 	name: string;
@@ -826,6 +837,21 @@ export const api = {
 	/** Adminのみ。IPv4/IPv6を順番に再取得し、Observed形式で返す (#134)。 */
 	refreshDeviceRoutes: (deviceId: string) =>
 		post<DeviceRoutes>(`/devices/${deviceId}/routes/refresh`),
+	/** 新しい順。続きは、最後のEventの`occurredAt`と`seq`を`before` / `beforeSeq`へ渡す。 */
+	deviceEvents: (
+		deviceId: string,
+		options: { limit?: number; before?: string; beforeSeq?: number } = {},
+	) => {
+		const query = new URLSearchParams();
+		if (options.limit) query.set("limit", String(options.limit));
+		if (options.before) query.set("before", options.before);
+		if (options.beforeSeq !== undefined)
+			query.set("beforeSeq", String(options.beforeSeq));
+		const suffix = query.toString();
+		return request<{ events: DeviceEvent[]; hasMore: boolean }>(
+			`/devices/${deviceId}/events${suffix ? `?${suffix}` : ""}`,
+		);
+	},
 	configBackups: (deviceId: string) =>
 		request<{ backups: ConfigBackup[] }>(`/devices/${deviceId}/config-backups`),
 	configCheckpoints: () =>

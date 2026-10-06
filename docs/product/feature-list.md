@@ -219,6 +219,8 @@ Routemonから設定変更をルーターへ反映できるようにする。
 
 Availability: 未確定(状態遷移のEvent記録は提供する、通知手段は未確定)
 
+状態遷移のEventは、Community版で記録される(PPP・Tunnelの接続/切断、WANのIPアドレスの変更、再起動、Agentのオンライン/オフライン)。Device詳細の「イベント」タブで見られる。種別と抽出規則は`docs/core/data-model.md` §4.11、`docs/core/syslog-design.md` §3.2.1。
+
 最低限以下を検知する。
 
 - Router Offline

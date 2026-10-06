@@ -205,6 +205,18 @@ Initial candidates:
 
 Raw SYSLOG行そのものをEventへ複製しない(`docs/core/syslog-design.md`)。
 
+**実装済みのEvent種別(#6):** 種別名は、既存(`agent.rollback`等)に合わせ、dot区切りの小文字とする。上の候補との対応は次のとおり。
+
+| 候補 | 種別 | severity | `transitionKey` | 出どころ |
+| --- | --- | --- | --- | --- |
+| `PPP_UP` / `PPP_DOWN` | `ppp.up` / `ppp.down` | info / warning | `ppp:<PP番号>` | SYSLOG |
+| `TUNNEL_UP` / `TUNNEL_DOWN` | `tunnel.up` / `tunnel.down` | info / warning | `tunnel:<番号>` | SYSLOG(`IP Tunnel[n] Up/Down`) |
+| `IP_CHANGED` | `ip.changed` | info | `ip:<PP番号>` | SYSLOG(WANのIPアドレスの変化) |
+| `REBOOTED` | `device.rebooted` | info | `reboot` | `show environment`の起動時刻の変化(10分ごとの観測) |
+| `AGENT_OFFLINE` / `AGENT_RECOVERED` | `agent.offline` / `agent.online` | warning / info | `agent` | AgentのPresenceの変化 |
+
+`agent.recovered`は、Supervisorが両slotの故障から復旧したEventで、`agent.online`とは別。Eventは`GET /api/devices/{deviceId}/events`で、新しい順に取得できる(GUIのDevice詳細の「イベント」タブ)。
+
 **記録の抑制(#158、ADR-0008 §11):** 回線が不安定なDeviceが、Event一覧のノイズ、容量の増加、将来の通知の過剰を引き起こさないよう、Event(`device_events`)の記録は次のとおり抑制する。数値は初期値で、設定で変えられる(Communityの環境変数`EVENT_FLAP_WINDOW_MS` / `EVENT_FLAP_THRESHOLD` / `EVENT_DAILY_CAP` / `EVENT_RETENTION_DAYS` / `EVENT_CLEANUP_MS`)。
 
 - **フラッピング:** 同じDeviceの同じ対象(PPP、Tunnelなど)の状態変化が、10分間に5回以上起きたら、個別のEventを止めて、1件の`event.flapping`にまとめる(5回目の状態変化の時点で記録し、その回の個別のEventは記録しない)。状態変化が10分間途絶えたら、個別の記録を再開する。状態変化のEventだけが対象で、呼び出し側が対象を識別する`transitionKey`を渡したときに判定する

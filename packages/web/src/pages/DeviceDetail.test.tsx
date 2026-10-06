@@ -8,6 +8,7 @@ import type {
 } from "../api.ts";
 import { formatTime } from "../ui.tsx";
 import {
+	formatEventDetail,
 	OBSERVED_STALE_MS,
 	ObservedFamilySection,
 	RoutesView,
@@ -324,5 +325,45 @@ describe("経路タブ全体", () => {
 		);
 		expect(html).toContain("2001:db8::/32");
 		expect(html).toContain("implicit");
+	});
+});
+
+describe("イベントの内容の表示", () => {
+	test("PPPの切断は、PP番号と理由を出す", () => {
+		expect(
+			formatEventDetail("ppp.down", {
+				pp: 1,
+				cause: "PPP: Authentication failed",
+			}),
+		).toBe("PP 1 / PPP: Authentication failed");
+		expect(formatEventDetail("ppp.up", { pp: 2 })).toBe("PP 2");
+	});
+
+	test("Tunnelは番号、IPアドレスの変更は前後の値を出す", () => {
+		expect(formatEventDetail("tunnel.down", { tunnel: 3 })).toBe("Tunnel 3");
+		expect(
+			formatEventDetail("ip.changed", {
+				pp: 1,
+				from: "203.0.113.1",
+				to: "203.0.113.99",
+			}),
+		).toBe("PP 1 / 203.0.113.1 → 203.0.113.99");
+	});
+
+	test("フラッピングは、対象と回数・時間を出す", () => {
+		expect(
+			formatEventDetail("event.flapping", {
+				target: "ppp:1",
+				transitions: 5,
+				window_seconds: 600,
+			}),
+		).toBe("ppp:1 / 600秒に5回以上");
+	});
+
+	test("detailが無い、または未知の種別でも壊れない", () => {
+		expect(formatEventDetail("ppp.up", null)).toBe("");
+		expect(formatEventDetail("something.new", { a: 1, b: "x" })).toBe(
+			"a: 1, b: x",
+		);
 	});
 });

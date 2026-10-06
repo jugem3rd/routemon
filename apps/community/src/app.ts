@@ -15,6 +15,7 @@ import { createBackupRoutes } from "./routes/backups.ts";
 import { createConfigApplyRoutes } from "./routes/configApplies.ts";
 import { createConfigApplyBatchRoutes } from "./routes/configApplyBatches.ts";
 import { createConfigCheckpointRoutes } from "./routes/configCheckpoints.ts";
+import { createDeviceEventRoutes } from "./routes/deviceEvents.ts";
 import {
 	createDeviceRoutes,
 	type DeviceDataCleanup,
@@ -97,6 +98,14 @@ export function createApp(options: AppOptions = {}) {
 					options.devices.config,
 					options.devices.updates,
 					options.devices.cleanupDeviceData,
+				),
+			);
+			app.route(
+				"/api",
+				createDeviceEventRoutes(
+					options.auth,
+					options.devices.db,
+					options.devices.tenantId,
 				),
 			);
 			app.route(
