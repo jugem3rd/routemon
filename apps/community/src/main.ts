@@ -8,6 +8,7 @@ import { FrameType } from "@routemon/core";
 import { AgentGateway, createAgentEndpoint } from "@routemon/gateway";
 import { Hono } from "hono";
 import { AgentUpdates } from "./agent/agentUpdates.ts";
+import { installBundledAgent } from "./agent/bundledAgent.ts";
 import {
 	GatewayEndpointsNotifier,
 	parseGatewayEndpoints,
@@ -185,6 +186,22 @@ setInterval(() => gateway.sweepPresence(), presenceSweepMs).unref();
 
 // Agent artifactの配布(Bootstrap / Supervisorが取得する)とversion管理(#35)
 const agentReleaseDir = storage.paths.agentReleases;
+// imageへ同梱したAgentを配置する。新規installでEnrollmentが通るために必要で、
+// version宣言が読めない壊れたimageは、ここで起動を失敗させる(#2)。
+{
+	const bundled = installBundledAgent({
+		sourcePath:
+			process.env.AGENT_BUNDLE_PATH ??
+			join(
+				dirname(fileURLToPath(import.meta.url)),
+				"../../../agent/https_tunnel_agent.lua",
+			),
+		releaseDir: agentReleaseDir,
+	});
+	console.log(
+		`bundled agent ${bundled.version}: stable ${bundled.stableWritten ? `updated (was ${bundled.previousStable ?? "none"})` : "kept"}, release ${bundled.releaseWritten ? "written" : "kept"}`,
+	);
+}
 // Structured Eventの記録(フラッピングのまとめ、1日の上限、保持期間。#158)
 const eventRecorder = new EventRecorder({
 	db: storage.db,

@@ -27,6 +27,8 @@ COPY --from=build /app/packages/gateway packages/gateway
 COPY --from=build /app/packages/web/dist packages/web/dist
 COPY --from=build /app/packages/web/package.json packages/web/
 COPY --from=build /app/apps/community apps/community
+# Enrollmentに必要なAgent本体。Server起動時に/data/agent/releases/へ配置される(#2)
+COPY --from=build /app/agent/https_tunnel_agent.lua agent/
 # release artifactにもlicense noticeを含める(#10)
 COPY LICENSE THIRD_PARTY_NOTICES.md ./
 
