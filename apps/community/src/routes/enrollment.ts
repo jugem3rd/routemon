@@ -17,10 +17,11 @@ import {
 	InvalidCodeError,
 	type RouterIdentity,
 } from "../enrollment/enrollment.ts";
+import { resolveUrl, type UrlSource } from "../enrollment/urlSource.ts";
 
 export type EnrollmentRouteOptions = {
-	/** Routerから見たRoutemonのbase URL(#12のSetupで設定する) */
-	baseUrl: string;
+	/** Routerから見たRoutemonのbase URL(#12のSetupで設定する)。Setup後の値を使うため、関数でもよい */
+	baseUrl: UrlSource;
 };
 
 function bearer(header: string | undefined): string | null {
@@ -56,7 +57,7 @@ export function createEnrollmentRoutes(
 					code: pending.code,
 					expiresAt: pending.expiresAt,
 					cliBlock: renderCliBlock({
-						baseUrl: options.baseUrl,
+						baseUrl: resolveUrl(options.baseUrl),
 						code: pending.code,
 					}),
 				},
@@ -80,7 +81,7 @@ export function createEnrollmentRoutes(
 						code: pending.code,
 						expiresAt: pending.expiresAt,
 						cliBlock: renderCliBlock({
-							baseUrl: options.baseUrl,
+							baseUrl: resolveUrl(options.baseUrl),
 							code: pending.code,
 						}),
 					},
@@ -139,9 +140,13 @@ export function createEnrollmentDeviceRoutes(
 				return c.json({ error: "invalid enrollment code" }, 401);
 			throw error;
 		}
-		return c.body(renderBootstrap({ baseUrl: options.baseUrl, code }), 200, {
-			"content-type": "text/plain; charset=utf-8",
-		});
+		return c.body(
+			renderBootstrap({ baseUrl: resolveUrl(options.baseUrl), code }),
+			200,
+			{
+				"content-type": "text/plain; charset=utf-8",
+			},
+		);
 	});
 
 	app.post("/v1/enrollment/complete", async (c) => {

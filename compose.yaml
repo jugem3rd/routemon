@@ -31,15 +31,19 @@ services:
     depends_on:
       - routemon
     volumes:
-      - routemon-data:/data:ro
-      - caddy-data:/data/caddy-internal
+      # Routemonが生成するCaddyfileを読む。読み取り専用のmountの下に別のvolumeは置けないため、
+      # Caddy自身のdata(証明書)は既定の/dataへ、Routemonのdataは/routemonへ分ける。
+      - routemon-data:/routemon:ro
+      - caddy-data:/data
       - caddy-config:/config
     ports:
+      # HTTPからHTTPSへのredirectと、証明書の取得(HTTP-01)に使う。Public URLがhttpのときは、これが入口になる
+      - "80:80"
       - "443:443"
       - "443:443/udp"
       # Native WebGUIは専用origin(docs/core/webgui-relay-design.md §8)
       - "8443:8443"
-    command: ["caddy", "run", "--config", "/data/caddy/routemon.caddyfile", "--adapter", "caddyfile", "--watch"]
+    command: ["caddy", "run", "--config", "/routemon/caddy/routemon.caddyfile", "--adapter", "caddyfile", "--watch"]
 
 volumes:
   routemon-data:

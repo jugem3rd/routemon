@@ -8,6 +8,7 @@ import type { ConfigApplyBatches } from "./config/configApplyBatches.ts";
 import type { ConfigCheckpoints } from "./config/configCheckpoints.ts";
 import type { ConfigSnapshots } from "./config/configSnapshots.ts";
 import type { Enrollment } from "./enrollment/enrollment.ts";
+import type { UrlSource } from "./enrollment/urlSource.ts";
 import type { Jobs } from "./jobs/jobs.ts";
 import { createAuthRoutes } from "./routes/auth.ts";
 import { createBackupRoutes } from "./routes/backups.ts";
@@ -50,7 +51,7 @@ export type AppOptions = {
 		updates?: AgentUpdates;
 		cleanupDeviceData?: DeviceDataCleanup;
 	};
-	enrollment?: { service: Enrollment; baseUrl: string };
+	enrollment?: { service: Enrollment; baseUrl: UrlSource };
 	syslog?: { service: SyslogService; db: Db; tenantId: string };
 	backups?: { db: Db; paths: DataPaths };
 	/** 初期Setup(#12)。未初期化なら/setupだけを許す */

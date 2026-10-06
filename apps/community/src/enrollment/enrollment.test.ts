@@ -661,6 +661,51 @@ describe("HTTP API", () => {
 		expect(result.deviceToken).toBeTruthy();
 	});
 
+	test("base URLが関数のとき、Setup後に変わった値がCLI block・Bootstrap・完了の応答へ反映される", async () => {
+		let url = "http://localhost:8080";
+		const live = new Enrollment(storage.db, tenantId, audit, {
+			gatewayUrl: () => url,
+		});
+		const app = createApp({
+			auth,
+			audit,
+			enrollment: { service: live, baseUrl: () => url },
+			secureCookie: false,
+		});
+		const router = new Hono();
+		router.route(
+			"/",
+			createEnrollmentDeviceRoutes(live, { baseUrl: () => url }),
+		);
+		const cookie = await login(app, "admin");
+
+		// Setup Wizardの完了でPublic URLが決まった
+		url = "https://routemon.example.com";
+		const res = await app.request("/api/devices", {
+			method: "POST",
+			headers: { cookie, "content-type": "application/json" },
+			body: JSON.stringify({ name: "after-setup" }),
+		});
+		const body = await res.json();
+		expect(body.enrollment.cliBlock).toContain("https://routemon.example.com");
+		expect(body.enrollment.cliBlock).not.toContain("localhost");
+
+		const code = body.enrollment.code;
+		const bootstrap = await router.request("/v1/enrollment/bootstrap", {
+			headers: { authorization: `Bearer ${code}` },
+		});
+		expect(await bootstrap.text()).toContain(
+			"local BASE = 'https://routemon.example.com'",
+		);
+		const complete = await router.request("/v1/enrollment/complete", {
+			method: "POST",
+			headers: { authorization: `Bearer ${code}` },
+		});
+		expect((await complete.json()).gateway).toBe(
+			"https://routemon.example.com",
+		);
+	});
+
 	test("Codeが無い・不正・使用済みなら401", async () => {
 		const pending = enrollment.createPendingDevice({
 			name: "d",
