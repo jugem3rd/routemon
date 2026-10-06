@@ -1,0 +1,6 @@
+# 開発用: imageを取得せず、このcheckoutからbuildする。
+#   docker compose -f compose.yaml -f compose.dev.yaml up -d --build
+services:
+  routemon:
+    build: .
+    image: routemon/community:dev

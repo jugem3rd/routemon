@@ -7,7 +7,22 @@ Community版は1つのcontainerで動きます。PostgreSQLやRedisは要りま�
 
 ## 動かす
 
+DockerとDocker Composeが入ったLinux(VPS等)で、`compose.yaml`を置いて起動します。
+imageはGitHub Container Registryの`ghcr.io/jugem3rd/routemon`から取得されます
+(`linux/amd64`と`linux/arm64`)。
+
 ```sh
+curl -fsSLO https://raw.githubusercontent.com/jugem3rd/routemon/main/compose.yaml
+docker compose up -d
+```
+
+`ROUTEMON_VERSION`でimageの版を固定できます(例: `ROUTEMON_VERSION=0.1.0 docker compose up -d`)。
+版を指定しないときは、`0.1`系の最新です。
+
+更新するときは次の通りです。データ(`/data`)とDeviceの接続は維持されます。
+
+```sh
+docker compose pull
 docker compose up -d
 ```
 
@@ -35,6 +50,11 @@ lua /routemon_enroll.lua
 YAMAHA Native WebGUI(Adminのみ)が使えます。
 
 ## 開発
+
+> `git clone`して`npm ci`で動かす方法は、開発者向けで、利用者向けのサポート外です
+> (`better-sqlite3`のnative moduleをbuildできる環境が要ります)。通常は上のDocker imageを使ってください。
+> source checkoutからimageをbuildするときは、
+> `docker compose -f compose.yaml -f compose.dev.yaml up -d --build`を使います。
 
 Node.js 24以上が必要です(型はNode.jsのtype strippingで直接実行します)。
 
