@@ -1,0 +1,50 @@
+name: 不具合の報告
+description: 動かない、期待と違う動きをする
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        脆弱性は、公開のIssueではなく、[非公開で報告](https://github.com/jugem3rd/routemon/security/advisories/new)してください。
+        Device Token、Enrollment Code、パスワード、CONFIGの本文は、貼らないでください(貼る前に伏せ字にしてください)。
+  - type: textarea
+    id: what
+    attributes:
+      label: 何が起きたか
+      description: 期待した動きと、実際の動き。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: server-version
+    attributes:
+      label: Serverのversion
+      description: imageのtag(例 `0.1.0`)。`docker compose images`で確認できます。
+    validations:
+      required: true
+  - type: input
+    id: router
+    attributes:
+      label: Routerの機種とfirmware
+      description: 例 `RTX830 Rev.15.02.30`。ルーターが関係しない場合は「なし」。
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Serverの環境
+      description: OS、Docker / Composeのversion、TLSの終端(同梱のCaddy、外部のReverse Proxy)など。
+  - type: textarea
+    id: logs
+    attributes:
+      label: log
+      description: `docker compose logs routemon`の該当部分。秘密情報は伏せてください。
+      render: text

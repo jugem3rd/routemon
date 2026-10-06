@@ -1,0 +1,21 @@
+name: 機能の要望
+description: こんなことができると嬉しい
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 困っていること
+      description: 今は何ができなくて、何に困っているか。
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: どうなると嬉しいか
+      description: 案があれば。実現方法まで決めていなくて構いません。
+  - type: input
+    id: router
+    attributes:
+      label: 関係するRouterの機種
+      description: 例 `RTX1210`。特定の機種に限らない場合は空欄で構いません。
