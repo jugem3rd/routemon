@@ -23,6 +23,7 @@ deployment方式に依存しないdomain semantics / protocol / behaviorを定�
 | 文書 | 内容 | 状態 |
 |---|---|---|
 | `lua-api-notes.md` | YAMAHA Lua APIの確認済み事実と制約 | Current |
+| `supported-devices.md` | Luaスクリプト機能の対応表から推測した対応機種(確認済みと未確認の区別) | Current |
 | `agent-update-design.md` | Bootstrap / Supervisor、A/B Agent update・rollback・recovery | Current |
 | `device-enrollment-design.md` | copy-paste方式のDevice Enrollment | Current |
 | `agent-gateway-design.md` | Agent Gatewayの共通責務 | Current |

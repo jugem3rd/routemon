@@ -36,6 +36,19 @@ Setup Wizardへ誘導されるので、以下をGUIで設定します。
 
 Setup完了後はCaddyがTLSを終端します。Caddyfileを手で書く必要はありません。
 
+## 対応機種
+
+Agentは、ルーターのLuaスクリプト機能(HTTPSに対応する`_RT_LUA_VERSION` 1.08以上)の上で動きます。
+
+| 区分 | 機種 |
+| --- | --- |
+| ◎ 動作確認済み | **RTX830**(Rev.15.02.30) |
+| ○ 対応と推測(公式資料の上でLua 1.08に対応、実機は未確認) | RTX1210、RTX1220、RTX1300、RTX840、RTX3510、RTX3500、RTX5000、NVR510、NVR700W、vRX(さくらのクラウド版) |
+| △ 一部に制限 | vRX(VMware ESXi版、Amazon EC2版): LuaSocketに非対応のため、Native WebGUIの中継が使えない可能性が高い |
+| × 非対応(Lua 1.08が無い) | RTX1200、RTX810、NVR500、FWX120、SRT100、YSL-V810 |
+
+確認できていない機種の報告は歓迎します(機種とfirmwareを添えて、Issueへ)。必要なfirmware、機種ごとの上限、確認の手順は`docs/core/supported-devices.md`にあります。
+
 ## ルーターを登録する
 
 GUIの`Devices`から`Deviceを追加`を押すと、Enrollment Codeを埋め込んだ2行のCLI blockが
