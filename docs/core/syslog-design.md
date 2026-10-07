@@ -90,6 +90,23 @@ Routemonが意味を解釈したイベント。
 
 よく使う運用検索は可能な限りStructured Eventへ寄せる。
 
+#### 3.2.1 抽出する行(#6)
+
+Agent Gatewayは、SYSLOG batchの各行を、次の規則で判定する(実装: `apps/community/src/syslog/events.ts`)。日時の接頭辞(`2026/09/20 22:03:49: `)は取り除いてから照合する。これ以外の行は、Eventにならない。
+
+| 行の形式 | Event | 備考 |
+| --- | --- | --- |
+| `PP[nn] PPP/IPCP up ...` | `ppp.up` | IPv4のIPCPが上がったとき。`PPPOE[nn] PPPoE Connect`(認証の前)では、上がったとみなさない |
+| `PPPOE[nn] Disconnected, cause [<理由>]` | `ppp.down` | 理由はdetailの`cause`へ入れる(理由が無い行もある) |
+| `IP Tunnel[n] Up` / `IP Tunnel[n] Down` | `tunnel.up` / `tunnel.down` | |
+| `PP[nn] Local  PP IP address a.b.c.d` | `ip.changed` | Deviceごと・PP番号ごとに最後に観測した値と違うときだけ。ServerのMemoryで持つため、Serverの再起動後の最初の観測は基準になるだけ。`0.0.0.0`(取得失敗)は無視 |
+
+文言の出典は、YAMAHAの公式資料の例(`PPPOE[01] PPPoE Connect`、`PP[01] PPP/IPCP up`、`PP[01] Local  PP IP address ...`、`IP Tunnel[1] Up`、`PPPOE[01] Disconnected, cause [PPP: Authentication failed]`)。**実機のfirmwareや設定で文言が違う行は、Eventにならない**ため、実機のSYSLOGを採取して、`events.test.ts`のfixtureへ足しながら規則を増やす。
+
+対象外(今は抽出しない): PPPoE以外のPP(PPTP、ISDN等)、IPv6のみのPPPoE(`PPP/IPV6CP up`)、IPv6 IPoE / DHCPで得るWANのアドレスの変化、L2TP / IPsecのクライアントの接続。
+
+抽出の失敗(例外)で、Raw SYSLOGの保存とLive Logsを止めない。
+
 例:
 
 - PPP down/up

@@ -11,6 +11,7 @@ import {
 } from "@routemon/core";
 import { AgentGateway, MemoryDeviceStore } from "@routemon/gateway";
 import { afterEach, beforeEach, expect, test } from "vitest";
+import { EventRecorder } from "../events/recorder.ts";
 import { nowIso } from "../storage/db.ts";
 import {
 	ensureDefaultTenant,
@@ -97,6 +98,7 @@ beforeEach(async () => {
 		db: storage.db,
 		tenantId,
 		gateway,
+		events: new EventRecorder({ db: storage.db, tenantId }),
 		timeoutMs: 500,
 	});
 });
@@ -149,4 +151,56 @@ test("未接続のDeviceはsweepで飛ばす", async () => {
 		.prepare("SELECT booted_at FROM devices WHERE id = ?")
 		.get(DEVICE_ID) as { booted_at: string | null };
 	expect(row.booted_at).toBeNull();
+});
+
+function rebootEvents() {
+	return storage.db
+		.prepare(
+			"SELECT severity, detail_json FROM device_events WHERE device_id = ? AND type = 'device.rebooted'",
+		)
+		.all(DEVICE_ID) as { severity: string; detail_json: string }[];
+}
+
+function setBootedAt(value: string) {
+	storage.db
+		.prepare("UPDATE devices SET booted_at = ? WHERE id = ?")
+		.run(value, DEVICE_ID);
+}
+
+test("起動時刻が進んだら、device.rebootedを記録する(#6)", async () => {
+	setBootedAt("2026-09-18T12:00:00.000Z");
+	startFakeAgent(ENVIRONMENT_SJIS);
+	await delay(30);
+
+	await runtime.probe(DEVICE_ID);
+	const events = rebootEvents();
+	expect(events).toHaveLength(1);
+	expect(events[0]?.severity).toBe("info");
+	expect(JSON.parse(events[0]?.detail_json ?? "{}")).toEqual({
+		booted_at: "2026-09-18T13:30:36.000Z",
+		previous_booted_at: "2026-09-18T12:00:00.000Z",
+	});
+
+	// 同じ起動時刻の観測は、再起動ではない
+	await runtime.probe(DEVICE_ID);
+	expect(rebootEvents()).toHaveLength(1);
+});
+
+test("初めての観測と、時刻のずれ(NTP補正など)は、再起動にしない", async () => {
+	startFakeAgent(ENVIRONMENT_SJIS);
+	await delay(30);
+
+	// 初めての観測(booted_atが空)
+	await runtime.probe(DEVICE_ID);
+	expect(rebootEvents()).toHaveLength(0);
+
+	// 数十秒のずれ
+	setBootedAt("2026-09-18T13:29:30.000Z");
+	await runtime.probe(DEVICE_ID);
+	expect(rebootEvents()).toHaveLength(0);
+
+	// 起動時刻が過去へ戻った場合も、再起動にしない
+	setBootedAt("2026-09-19T00:00:00.000Z");
+	await runtime.probe(DEVICE_ID);
+	expect(rebootEvents()).toHaveLength(0);
 });

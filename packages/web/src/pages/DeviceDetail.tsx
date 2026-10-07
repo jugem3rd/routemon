@@ -8,6 +8,7 @@ import {
 	type ConfigBackup,
 	type ConfigDiff,
 	type Device,
+	type DeviceEvent,
 	type DeviceProfile,
 	type DeviceRouteSnapshot,
 	type DeviceRoutes,
@@ -36,7 +37,14 @@ import {
 	StatusBadge,
 } from "../ui.tsx";
 
-type Tab = "overview" | "routes" | "power" | "config" | "syslog" | "commands";
+type Tab =
+	| "overview"
+	| "events"
+	| "routes"
+	| "power"
+	| "config"
+	| "syslog"
+	| "commands";
 type Line = { ts: string; message: string };
 
 const MAX_SYSLOG_TIME_RANGE_MS = 24 * 60 * 60 * 1000;
@@ -44,6 +52,7 @@ const MAX_SYSLOG_RESULT_LINES = 10_000;
 
 const TABS: [Tab, string][] = [
 	["overview", "概要"],
+	["events", "イベント"],
 	["routes", "経路"],
 	["power", "電源"],
 	["config", "CONFIG"],
@@ -122,6 +131,7 @@ export function DeviceDetail({
 						{tab === "overview" && (
 							<Overview device={device} user={user} onChanged={setDevice} />
 						)}
+						{tab === "events" && <Events deviceId={deviceId} />}
 						{tab === "routes" && <Routes deviceId={deviceId} user={user} />}
 						{tab === "power" && (
 							<Power
@@ -146,6 +156,205 @@ export function DeviceDetail({
 			</div>
 		</>
 	);
+}
+
+/** Eventの表示名と、色の区分。未知の種別は、種別名のまま中立の色で出す。 */
+const EVENT_LABELS: Record<string, string> = {
+	"ppp.up": "PPP接続",
+	"ppp.down": "PPP切断",
+	"tunnel.up": "Tunnel接続",
+	"tunnel.down": "Tunnel切断",
+	"ip.changed": "WANのIPアドレス変更",
+	"device.rebooted": "再起動",
+	"agent.online": "Agentがオンライン",
+	"agent.offline": "Agentがオフライン",
+	"agent.rollback": "Agentをrollback",
+	"agent.recovered": "Agentを復旧",
+	"supervisor.rollback": "Supervisorをrollback",
+	"event.flapping": "状態が頻繁に変化(フラッピング)",
+	"event.limit_reached": "1日のEvent数の上限に達した",
+};
+
+/** Eventのdetailを、1行の説明にする。Raw SYSLOG行は載せない。 */
+export function formatEventDetail(
+	type: string,
+	detail: Record<string, unknown> | null,
+): string {
+	if (!detail) return "";
+	const text = (key: string) =>
+		detail[key] === undefined || detail[key] === null
+			? null
+			: String(detail[key]);
+	const parts: (string | null)[] = [];
+	switch (type) {
+		case "ppp.up":
+		case "ppp.down":
+			parts.push(text("pp") && `PP ${text("pp")}`, text("cause"));
+			break;
+		case "tunnel.up":
+		case "tunnel.down":
+			parts.push(text("tunnel") && `Tunnel ${text("tunnel")}`);
+			break;
+		case "ip.changed":
+			parts.push(
+				text("pp") && `PP ${text("pp")}`,
+				text("from") && text("to") && `${text("from")} → ${text("to")}`,
+			);
+			break;
+		case "device.rebooted":
+			parts.push(
+				text("booted_at") && `起動時刻 ${formatTime(String(detail.booted_at))}`,
+			);
+			break;
+		case "agent.offline":
+			parts.push(
+				text("last_seen_at") &&
+					`最後の通信 ${formatTime(String(detail.last_seen_at))}`,
+			);
+			break;
+		case "event.flapping":
+			parts.push(
+				text("target"),
+				text("transitions") &&
+					text("window_seconds") &&
+					`${text("window_seconds")}秒に${text("transitions")}回以上`,
+			);
+			break;
+		default:
+			return Object.entries(detail)
+				.map(([key, value]) => `${key}: ${String(value)}`)
+				.join(", ");
+	}
+	return parts.filter(Boolean).join(" / ");
+}
+
+function eventTone(event: DeviceEvent): "warn" | "ok" | "neutral" {
+	if (event.severity === "warning") return "warn";
+	if (event.severity === "info") return "ok";
+	return "neutral";
+}
+
+const EVENTS_PAGE_SIZE = 50;
+
+/** 「イベント」タブ。SYSLOG等から抽出した状態変化の履歴(Raw SYSLOGとは別、#6)。 */
+function Events({ deviceId }: { deviceId: string }) {
+	const [events, setEvents] = useState<DeviceEvent[] | null>(null);
+	const [hasMore, setHasMore] = useState(false);
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	// 最初のページ(新しいEvent)を、30秒ごとに読み直す。続きを読み込んだ後も、先頭だけ更新する
+	useEffect(() => {
+		let active = true;
+		const load = () =>
+			api
+				.deviceEvents(deviceId, { limit: EVENTS_PAGE_SIZE })
+				.then((result) => {
+					if (!active) return;
+					setError(null);
+					setEvents((current) => {
+						if (!current) {
+							setHasMore(result.hasMore);
+							return result.events;
+						}
+						const known = new Set(result.events.map((event) => event.id));
+						return [
+							...result.events,
+							...current.filter((event) => !known.has(event.id)),
+						].sort(compareEventsNewestFirst);
+					});
+				})
+				.catch((cause: unknown) => {
+					if (active)
+						setError(
+							cause instanceof Error ? cause.message : "取得に失敗しました",
+						);
+				});
+		void load();
+		const timer = setInterval(() => void load(), 30_000);
+		return () => {
+			active = false;
+			clearInterval(timer);
+		};
+	}, [deviceId]);
+
+	const loadMore = async () => {
+		const last = events?.at(-1);
+		if (!last) return;
+		setLoading(true);
+		try {
+			const result = await api.deviceEvents(deviceId, {
+				limit: EVENTS_PAGE_SIZE,
+				before: last.occurredAt,
+				beforeSeq: last.seq,
+			});
+			setEvents((current) => [...(current ?? []), ...result.events]);
+			setHasMore(result.hasMore);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : "取得に失敗しました");
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	if (!events)
+		return error ? <Notice tone="error">{error}</Notice> : <Loading />;
+
+	return (
+		<Card title="イベント" flush>
+			{error && <Notice tone="error">{error}</Notice>}
+			{events.length === 0 ? (
+				<Empty title="イベントはまだありません">
+					PPPやTunnelの接続・切断、WANのIPアドレスの変更、再起動、Agentの接続の変化が、ここに記録されます。
+				</Empty>
+			) : (
+				<div className="table-wrap">
+					<table>
+						<thead>
+							<tr>
+								<th>日時</th>
+								<th>種別</th>
+								<th>内容</th>
+							</tr>
+						</thead>
+						<tbody>
+							{events.map((event) => (
+								<tr key={event.id}>
+									<td>{formatTime(event.occurredAt)}</td>
+									<td>
+										<Badge tone={eventTone(event)}>
+											{EVENT_LABELS[event.type] ?? event.type}
+										</Badge>
+									</td>
+									<td className="mono">
+										{formatEventDetail(event.type, event.detail)}
+									</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</div>
+			)}
+			{hasMore && (
+				<div style={{ padding: "12px 16px" }}>
+					<button
+						type="button"
+						className="btn"
+						disabled={loading}
+						onClick={() => void loadMore()}
+					>
+						{loading ? <Spinner /> : "さらに読み込む"}
+					</button>
+				</div>
+			)}
+		</Card>
+	);
+}
+
+function compareEventsNewestFirst(a: DeviceEvent, b: DeviceEvent): number {
+	if (a.occurredAt !== b.occurredAt)
+		return a.occurredAt < b.occurredAt ? 1 : -1;
+	return b.seq - a.seq;
 }
 
 /**

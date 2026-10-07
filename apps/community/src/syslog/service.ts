@@ -48,6 +48,8 @@ type SyslogServiceOptions = {
 	/** CONFIG保存SYSLOGを、未保存状態の解除へ通知する。 */
 	onConfigSaved?: (deviceId: string) => void | Promise<void>;
 	debounceMs?: number;
+	/** 状態変化のStructured Eventを抽出する(#6)。Raw SYSLOG行は、Eventへ複製しない。 */
+	events?: { process(deviceId: string, messages: string[]): number };
 };
 
 export class TimeRangeTooLargeError extends Error {}
@@ -61,6 +63,7 @@ export class SyslogService {
 	private readonly configSnapshots?: Pick<ConfigSnapshots, "request">;
 	private readonly onConfigSaved?: SyslogServiceOptions["onConfigSaved"];
 	private readonly debounceMs: number;
+	private readonly events?: SyslogServiceOptions["events"];
 	private readonly subscribers = new Map<string, Set<LiveSubscriber>>();
 	private readonly configChangeTimers = new Map<
 		string,
@@ -79,6 +82,7 @@ export class SyslogService {
 		this.configSnapshots = options.configSnapshots;
 		this.onConfigSaved = options.onConfigSaved;
 		this.debounceMs = options.debounceMs ?? CONFIG_CHANGE_DEBOUNCE_MS;
+		this.events = options.events;
 	}
 
 	/** Agentから届いたSYSLOG batch(LF区切りの生の行、Shift_JIS)を取り込む。 */
@@ -100,6 +104,18 @@ export class SyslogService {
 				this.scheduleConfigRefresh(deviceId);
 				void this.onConfigSaved?.(deviceId);
 			}
+		}
+
+		// Event抽出の失敗で、SYSLOGの保存とLive Logsを止めない
+		try {
+			this.events?.process(
+				deviceId,
+				lines.map((line) => line.message),
+			);
+		} catch (error) {
+			console.warn(
+				`syslog event extraction failed for ${deviceId}: ${(error as Error).message}`,
+			);
 		}
 
 		for (const subscriber of this.subscribers.get(deviceId) ?? []) {

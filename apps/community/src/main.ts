@@ -29,6 +29,7 @@ import {
 } from "./config/reconcile.ts";
 import { DeviceRuntime, RUNTIME_REFRESH_MS } from "./devices/runtime.ts";
 import { createDeviceStore, Enrollment } from "./enrollment/enrollment.ts";
+import { PresenceEvents } from "./events/presence.ts";
 import { EventRecorder } from "./events/recorder.ts";
 import { Jobs } from "./jobs/jobs.ts";
 import { createEnrollmentDeviceRoutes } from "./routes/enrollment.ts";
@@ -49,6 +50,7 @@ import {
 	ensureDefaultTenant,
 	openStorage,
 } from "./storage/index.ts";
+import { SyslogEventExtractor } from "./syslog/events.ts";
 import { SyslogService } from "./syslog/service.ts";
 import { createWebGuiRelay } from "./webgui/relay.ts";
 import { NativeGuiSessions } from "./webgui/sessions.ts";
@@ -85,6 +87,7 @@ let configCheckpoints: ConfigCheckpoints | undefined;
 let deviceRuntime: DeviceRuntime | undefined;
 let agentUpdates: AgentUpdates | undefined;
 let gatewayEndpoints: GatewayEndpointsNotifier | undefined;
+let presenceEvents: PresenceEvents | undefined;
 const gateway = new AgentGateway({
 	store,
 	logger: console,
@@ -132,6 +135,13 @@ const gateway = new AgentGateway({
 	},
 	onPresenceChange: (presence) => {
 		console.log(`presence ${presence.deviceId}: ${presence.status}`);
+		try {
+			presenceEvents?.handle(presence);
+		} catch (error) {
+			console.warn(
+				`presence event failed for ${presence.deviceId}: ${(error as Error).message}`,
+			);
+		}
 		// 接続し直したら起動時刻を測り直す(再起動していれば変わる、#54)
 		if (presence.status === "online") {
 			// Gatewayの再起動後など、AGENT_STATUSを待たずに接続先の一覧を通知する(#147)
@@ -211,6 +221,7 @@ const eventRecorder = new EventRecorder({
 	dailyCap: Number(process.env.EVENT_DAILY_CAP) || undefined,
 	retentionDays: Number(process.env.EVENT_RETENTION_DAYS) || undefined,
 });
+presenceEvents = new PresenceEvents({ recorder: eventRecorder });
 setInterval(
 	() => {
 		try {
@@ -231,7 +242,12 @@ agentUpdates = new AgentUpdates({
 	events: eventRecorder,
 });
 
-deviceRuntime = new DeviceRuntime({ db: storage.db, tenantId, gateway });
+deviceRuntime = new DeviceRuntime({
+	db: storage.db,
+	tenantId,
+	gateway,
+	events: eventRecorder,
+});
 setInterval(() => {
 	void deviceRuntime?.sweep().catch((error) => {
 		console.warn(`runtime sweep failed: ${(error as Error).message}`);
@@ -286,6 +302,8 @@ setInterval(() => {
 syslogService = new SyslogService(gateway, storage.syslog, Date.now, {
 	configSnapshots,
 	onConfigSaved: (deviceId) => configApplies?.handleConfigSaved(deviceId),
+	// PPPoE・IP Tunnelの状態変化、WANのIPアドレスの変更をEventにする(#6)
+	events: new SyslogEventExtractor({ recorder: eventRecorder }),
 });
 // 予約した再起動(#54)。Server再起動後もDBに残った予約を拾う
 const scheduleTickMs = Number(process.env.SCHEDULE_TICK_MS ?? 30_000);
