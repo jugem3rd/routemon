@@ -54,7 +54,7 @@ RTX830はVer1.08のため、上記すべてが利用可能。
 
 - HTTP/HTTPS通信。GET/HEAD/POST対応。
 - 戻り値はテーブル形式（通信成否、ファイル書込成否、code、header、body）
-- RTX830での制約: URL最大255文字、body最大640KB、タイムアウト1〜180秒
+- RTX830での制約: URL最大255文字(**公式のAPI資料では、255文字はRev.15.02.28以前で、それ以降は既定の2,048文字。確認済みfirmwareのRev.15.02.30での実測は未確認**)、body最大640KB、タイムアウト1〜180秒。ほかの機種の上限は`docs/core/supported-devices.md`
 - Basic認証・Bearer認証（Ver1.08〜）対応
 - **`_RT_LUA_VERSION` が "1.08" 以上の場合、`https://` で始まるURLを指定するとSSL通信を行う**（RTX830は対応）
 - ただしこれは単発リクエスト/レスポンス用のAPIであり、Persistentな双方向streamには使えない
