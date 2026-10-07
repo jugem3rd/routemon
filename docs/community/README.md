@@ -22,6 +22,7 @@ Routemon Community / Self-Hosted固有の実装・deploymentを定義する。Co
 | `local-auth-design.md` | Local Auth / 初回Admin作成 / User追加 | Current |
 | `database-design.md` | SQLite physical schema / migration | Current |
 | `architecture.md` | Community architecture | Current |
+| `loadtest.md` | Agent Gatewayの負荷試験の記録(台数、SYSLOG、WebGUI relay、FD上限、再起動)。再現手順は`scripts/loadtest/` | Measurement record |
 
 ## 読む順番
 

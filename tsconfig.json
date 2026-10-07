@@ -10,6 +10,6 @@
 		"skipLibCheck": true,
 		"types": ["node"]
 	},
-	"include": ["apps", "packages"],
+	"include": ["apps", "packages", "scripts/**/*.ts"],
 	"exclude": ["packages/web"]
 }
