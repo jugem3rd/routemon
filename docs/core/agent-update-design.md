@@ -66,9 +66,12 @@ device_id
 primary_gateway
 device_token
 update_channel
+log_level
 ```
 
 Agent Lua本体へDevice Tokenを埋め込まない。
+
+`log_level`は省略できる。既定(未設定・未知の値を含む)では、Agentはconsoleへ何も出さず、接続の失敗・回復・認証拒否(`http 401`)の変化だけを`rt.syslog`へ出す(同じ失敗は15分に1回まで)。`'debug'`のときだけ、`print`で詳細(stream、session error、retry間隔)を出す。
 
 ### Agent A/B slots
 
