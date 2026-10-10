@@ -2,9 +2,9 @@
 -- RTX830のLuaと同じ5.1系で実行する(パターンの%zが5.1の書き方のため):
 --   luajit agent/https_tunnel_agent_test.lua
 local src = assert(io.open('agent/https_tunnel_agent.lua')):read('*a')
-local head = src:sub(1, src:find("print('=== https_tunnel_agent start", 1, true) - 1)
-local text_escape, cobs_decode, process_inbound_frame, get_apply_state, reset_apply, queue_config_snapshot =
-    assert(loadstring(head .. ' return text_escape, cobs_decode, process_inbound_frame, function() return pending, apply_state end, function() discard_apply(); pending = {} end, queue_config_snapshot'))()
+local head = src:sub(1, src:find("debug_print('=== https_tunnel_agent start", 1, true) - 1)
+local text_escape, cobs_decode, process_inbound_frame, get_apply_state, reset_apply, queue_config_snapshot, report_sync_result =
+    assert(loadstring(head .. ' return text_escape, cobs_decode, process_inbound_frame, function() return pending, apply_state end, function() discard_apply(); pending = {} end, queue_config_snapshot, report_sync_result'))()
 
 -- post_textが拒否するバイト(実機で全256値を確認、§22)とエスケープ文字0xFF
 local UNSAFE = {[127] = true, [255] = true}
@@ -372,6 +372,41 @@ queue_config_snapshot('apply_verify')
 assert(snapshot_attempts == 1 and #sleep_intervals == 0)
 assert(#syslog_messages == 1 and syslog_messages[1]:find('succeeded on attempt 1 of 5', 1, true))
 clear_pending()
+
+-- Issue #19: syncの失敗はsyslogへ、変化したときと15分おきだけ出す
+local clock = 1000
+_G.os.time = function() return clock end
+local function reset_syslog()
+    for i = #syslog_messages, 1, -1 do
+        syslog_messages[i] = nil
+    end
+end
+reset_syslog()
+report_sync_result(true)
+assert(#syslog_messages == 0)
+report_sync_result(false, 'sync failed: timeout https://secret.example/v1')
+assert(#syslog_messages == 1 and syslog_messages[1]:find('connection failed (timeout)', 1, true))
+assert(not syslog_messages[1]:find('secret', 1, true))
+for _ = 1, 20 do
+    clock = clock + 30
+    report_sync_result(false, 'sync failed: timeout')
+end
+assert(#syslog_messages == 1)
+clock = clock + 900
+report_sync_result(false, 'sync failed: timeout')
+assert(#syslog_messages == 2)
+report_sync_result(false, 'sync http 401')
+assert(#syslog_messages == 3 and syslog_messages[3]:find('http 401', 1, true) and syslog_messages[3]:find('rejected', 1, true))
+report_sync_result(false, 'sync http 401')
+assert(#syslog_messages == 3)
+report_sync_result(true)
+assert(#syslog_messages == 4 and syslog_messages[4]:find('recovered', 1, true))
+report_sync_result(true)
+assert(#syslog_messages == 4)
+report_sync_result(false, 'sync http 502')
+assert(#syslog_messages == 5 and syslog_messages[5]:find('http 502', 1, true))
+report_sync_result(true)
+reset_syslog()
 
 _G.io = real_io
 _G.os = real_os

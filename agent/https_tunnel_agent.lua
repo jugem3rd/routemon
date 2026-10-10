@@ -24,6 +24,8 @@
 local VERSION = '0.3.0'
 local BASE = 'https://example.invalid'
 local DEVICE_TOKEN = 'routemon-poc-device-token'
+-- 'debug'のときだけ、詳細をprintする。既定(未設定・未知の値を含む)ではconsoleに何も出さない(Issue #19)。
+local LOG_LEVEL = 'quiet'
 
 -- Agent A/B update PoC(Issue #7): Bootstrap / Supervisor(agent/update/routemon_bootstrap.lua)
 -- 配下で動く場合は、接続先とtokenをdevice configから読み、最初の認証済みsync成功を
@@ -37,6 +39,15 @@ if conf_chunk then
     local conf = conf_chunk()
     BASE = conf.gateway
     DEVICE_TOKEN = conf.token
+    if conf.log_level == 'debug' then
+        LOG_LEVEL = 'debug'
+    end
+end
+
+local function debug_print(message)
+    if LOG_LEVEL == 'debug' then
+        print(message)
+    end
 end
 
 -- 接続先の一覧(#147)。GATEWAY_ENDPOINTSで更新され、Supervisorも同じfileを読む。
@@ -660,7 +671,7 @@ local function process_apply_frame(mtype, sid, payload)
 end
 
 local function close_stream_local(sid, sock, reason)
-    print('stream ' .. sid .. ' closed: ' .. tostring(reason))
+    debug_print('stream ' .. sid .. ' closed: ' .. tostring(reason))
     sock:close()
     streams[sid] = nil
     sid_of[sock] = nil
@@ -781,7 +792,7 @@ local function process_inbound_frame(mtype, sid, payload)
             streams[sid] = gui
             sid_of[gui] = sid
             last_activity[sid] = os.time()
-            print('stream ' .. sid .. ' open')
+            debug_print('stream ' .. sid .. ' open')
         else
             gui:close()
         end
@@ -985,7 +996,50 @@ local function collect()
     return table.concat(out)
 end
 
-print('=== https_tunnel_agent start ' .. VERSION .. ' ===')
+-- syncの失敗・回復をsyslogへ出す(Issue #19)。変化したときと、同じ失敗が続くときの
+-- REPORT_INTERVAL秒ごとだけ出し、Routerのlog領域を埋めない。URL・tokenは出さない。
+local REPORT_INTERVAL = 900
+local failure_kind = nil
+local failure_reported_at = 0
+
+local function classify_failure(err)
+    local text = tostring(err)
+    local code = string.match(text, '^sync http (%d+)')
+    if code then
+        return 'http ' .. code
+    end
+    if string.find(string.lower(text), 'timeout', 1, true) or string.find(string.lower(text), 'timed out', 1, true) then
+        return 'timeout'
+    end
+    if string.sub(text, 1, 12) == 'sync crashed' then
+        return 'internal error'
+    end
+    return 'connection failed'
+end
+
+local function report_sync_result(ok, err)
+    if ok then
+        if failure_kind then
+            rt.syslog('info', 'routemon agent: gateway connection recovered')
+            failure_kind = nil
+        end
+        return
+    end
+    local kind = classify_failure(err)
+    local now = os.time()
+    if kind == failure_kind and now - failure_reported_at < REPORT_INTERVAL then
+        return
+    end
+    failure_kind = kind
+    failure_reported_at = now
+    if kind == 'http 401' then
+        rt.syslog('info', 'routemon agent: gateway rejected the device token (http 401)')
+    else
+        rt.syslog('info', 'routemon agent: gateway connection failed (' .. kind .. ')')
+    end
+end
+
+debug_print('=== https_tunnel_agent start ' .. VERSION .. ' ===')
 queue_agent_status()
 queue_config_snapshot('agent_start')
 local backoff = BASE_BACKOFF
@@ -1008,6 +1062,7 @@ while true do
         wait = 0
     end
     local ok, err = sync(up, wait)
+    report_sync_result(ok, err)
     if ok then
         -- 切り替えた接続先で最初のsyncが成功したら、切り替えを確定する
         if pending_switch then
@@ -1029,13 +1084,13 @@ while true do
         backoff = BASE_BACKOFF
         up = collect()
     else
-        print('session error: ' .. tostring(err))
+        debug_print('session error: ' .. tostring(err))
         note_sync_failure()
         backoff = backoff * 2
         if backoff > MAX_BACKOFF then
             backoff = MAX_BACKOFF
         end
-        print('retrying in ' .. backoff .. 's')
+        debug_print('retrying in ' .. backoff .. 's')
         sleep(backoff)
     end
 end
