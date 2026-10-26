@@ -18,11 +18,11 @@
 		"audit:licenses": "node scripts/licenses.mjs"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.5.15",
+		"@biomejs/biome": "^2.6.2",
 		"@types/better-sqlite3": "^9.6.0",
-		"@types/node": "^24.19.0",
+		"@types/node": "^24.19.2",
 		"typescript": "^7.0.2",
-		"vitest": "^5.0.3"
+		"vitest": "^5.0.5"
 	},
 	"license": "MIT"
 }
